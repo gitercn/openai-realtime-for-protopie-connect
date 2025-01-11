@@ -1,5 +1,7 @@
 import { ArrowUp, ArrowDown } from "react-feather";
 import { useState } from "react";
+const processedEventIds = new Set(); // 用于记录已处理的 event_id
+
 
 function Event({ event, timestamp }) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -23,9 +25,8 @@ function Event({ event, timestamp }) {
         </div>
       </div>
       <div
-        className={`text-gray-500 bg-gray-200 p-2 rounded-md overflow-x-auto ${
-          isExpanded ? "block" : "hidden"
-        }`}
+        className={`text-gray-500 bg-gray-200 p-2 rounded-md overflow-x-auto ${isExpanded ? "block" : "hidden"
+          }`}
       >
         <pre className="text-xs">{JSON.stringify(event, null, 2)}</pre>
       </div>
@@ -33,17 +34,37 @@ function Event({ event, timestamp }) {
   );
 }
 
-export default function EventLog({ events }) {
+export default function EventLog({ events, socket }) {
   const eventsToDisplay = [];
   let deltaEvents = {};
 
   events.forEach((event) => {
     if (event.type.endsWith("delta")) {
       if (deltaEvents[event.type]) {
-        // for now just log a single event per render pass
-        return;
+        return; 
       } else {
         deltaEvents[event.type] = event;
+      }
+    }
+
+    console.log(event)
+    if (event?.type === "response.audio_transcript.done") {
+      if (processedEventIds.has(event.event_id)) {
+        return;
+      }
+
+      processedEventIds.add(event.event_id);
+
+      console.log("Transcript:", event?.transcript);
+
+      // Emit the transcript to the socket
+      if (socket) {
+        socket.emit("ppMessage", {
+          messageId: "response",
+          value: event.transcript,
+        });
+      } else {
+        console.error("Socket is not available!");
       }
     }
 

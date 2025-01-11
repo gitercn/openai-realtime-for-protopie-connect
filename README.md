@@ -1,34 +1,35 @@
-# OpenAI Realtime Console
+# OpenAI Realtime for ProtoPie Connect
 
-This is a fork of the example application showing how to use the [OpenAI Realtime API](https://platform.openai.com/docs/guides/realtime) with [WebRTC](https://platform.openai.com/docs/guides/realtime-webrtc). This version uses Express JS with Vite instead of Fastify, as Fastify was not working correctly with Windows paths. Here is the official version [https://github.com/openai/openai-realtime-console](https://github.com/openai/openai-realtime-console).
+This project is based on a fork of the [OpenAI Realtime Console](https://github.com/openai/openai-realtime-console), originally developed by OpenAI. The initial fork by [bloodlinealpha](https://github.com/bloodlinealpha/openai-realtime-console) replaced Fastify with Express.js to fix issues with paths. This modification enables communication with **ProtoPie Connect** as a bridge app.
 
-I put this together for those who want to test locally and cannot get the Fastify instance working correctly. I spent far too much time debugging the fastify path issues LOL... updating to use Express was much easier!!
+### Notes
+- **ProtoPie Connect**: Controlling session using `start` or `stop` through ProtoPie Connect. OpenAI's returned outputs are transmitted back to ProtoPie Connect.
+- **Audio is Browser-Based**: After starting the application, audio playback requires opening the web page in a browser to capture and play sound.
 
-## Installation and usage
+### Installation and Usage
 
-Before you begin, you'll need an OpenAI API key - [create one in the dashboard here](https://platform.openai.com/settings/api-keys). 
+#### Prerequisites
+1. Obtain an OpenAI API key from the [OpenAI dashboard](https://platform.openai.com/settings/api-keys).
+2. Install [Node.js](https://nodejs.org/) on your system.
 
-Create a `.env` file in the root directory of the project and add your API key:
+#### Setup
+1. Clone this repository and navigate to its root directory.
+2. Create a `.env` file and add your API key:
+   ```plaintext
+   OPENAI_API_KEY=<your-key-here>
+   ```
+3. Install dependencies:
+   ```bash
+   npm install
+   ```
+4. Start the application server:
+   ```bash
+   npm run dev
+   ```
 
-```
-OPENAI_API_KEY=<your key here>
-```
+#### Access
+- Open the application in your browser at [http://localhost:3000](http://localhost:3000).
+- Ensure your browser is configured to capture and play sound from the page.
 
-Running this application locally requires [Node.js](https://nodejs.org/) to be installed. Install dependencies for the application with:
-
-```bash
-npm install
-```
-
-Start the application server with:
-
-```bash
-npm run dev
-```
-
-This should start the console application on [http://localhost:3000](http://localhost:3000).
-
-
-## Local Testing Only
-
-Please note that this version of the application is intended for local testing purposes only. No build procedures have been set up for deployment.
+### Limitations
+- This version is designed for **local testing only** and does not include deployment configurations or build processes.

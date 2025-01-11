@@ -4,59 +4,108 @@ import EventLog from "./EventLog";
 import SessionControls from "./SessionControls";
 import ToolPanel from "./ToolPanel";
 
+import io from "socket.io-client";
+const address = "http://localhost:9981";
+
 export default function App() {
+  const [socket, setSocket] = useState(null);
   const [isSessionActive, setIsSessionActive] = useState(false);
   const [events, setEvents] = useState([]);
   const [dataChannel, setDataChannel] = useState(null);
   const peerConnection = useRef(null);
   const audioElement = useRef(null);
 
-  async function startSession() {
-    // Get an ephemeral key from the Fastify server
-    const tokenResponse = await fetch("/token");
-    const data = await tokenResponse.json();
-    const EPHEMERAL_KEY = data.client_secret.value;
+  // UseEffect to initialize socket connection on mount
+  useEffect(() => {
+    const socketInstance = io(address);
 
-    // Create a peer connection
-    const pc = new RTCPeerConnection();
-
-    // Set up to play remote audio from the model
-    audioElement.current = document.createElement("audio");
-    audioElement.current.autoplay = true;
-    pc.ontrack = (e) => (audioElement.current.srcObject = e.streams[0]);
-
-    // Add local audio track for microphone input in the browser
-    const ms = await navigator.mediaDevices.getUserMedia({
-      audio: true,
-    });
-    pc.addTrack(ms.getTracks()[0]);
-
-    // Set up data channel for sending and receiving events
-    const dc = pc.createDataChannel("oai-events");
-    setDataChannel(dc);
-
-    // Start the session using the Session Description Protocol (SDP)
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-
-    const baseUrl = "https://api.openai.com/v1/realtime";
-    const model = "gpt-4o-realtime-preview-2024-12-17";
-    const sdpResponse = await fetch(`${baseUrl}?model=${model}`, {
-      method: "POST",
-      body: offer.sdp,
-      headers: {
-        Authorization: `Bearer ${EPHEMERAL_KEY}`,
-        "Content-Type": "application/sdp",
-      },
+    socketInstance.on("connect", () => {
+      console.log("Socket connected to", address);
+      socketInstance.emit("ppBridgeApp", { name: "OpenAI RealTime API bridge app" });
     });
 
-    const answer = {
-      type: "answer",
-      sdp: await sdpResponse.text(),
+    const messageHandler = (message) => {
+      console.log("Message from connect", message);
+      if (message.messageId === "test") {
+        socketInstance.emit("ppMessage", {
+          messageId: "test-connection",
+          value: "connection from ProtoPie Connect to Bridge App test ok",
+          fromName: "OpenAI RealTime API bridge app",
+        });
+      }
+      if (message.messageId === "start") {
+        console.log("Received start from ProtoPie Connect");
+        startSession();
+      }
+      if (message.messageId === "stop") {
+        console.log("Received stop from ProtoPie Connect");
+        stopSession();
+      }
     };
-    await pc.setRemoteDescription(answer);
 
-    peerConnection.current = pc;
+    socketInstance.on("ppMessage", messageHandler);
+
+    setSocket(socketInstance);
+
+    return () => {
+      socketInstance.off("ppMessage", messageHandler); 
+      socketInstance.disconnect();
+    };
+  }, []);  
+
+  async function startSession() {
+    try {
+      // Get an ephemeral key from the Fastify server
+      const tokenResponse = await fetch("/token");
+      const data = await tokenResponse.json();
+      const EPHEMERAL_KEY = data.client_secret.value;
+
+      // Create a peer connection
+      const pc = new RTCPeerConnection();
+
+      // Set up to play remote audio from the model
+      audioElement.current = document.createElement("audio");
+      audioElement.current.autoplay = true;
+      pc.ontrack = (e) => (audioElement.current.srcObject = e.streams[0]);
+
+      // Add local audio track for microphone input in the browser
+      const ms = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+      });
+      pc.addTrack(ms.getTracks()[0]);
+
+      // Set up data channel for sending and receiving events
+      const dc = pc.createDataChannel("oai-events");
+      setDataChannel(dc);
+
+      // Start the session using the Session Description Protocol (SDP)
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      const baseUrl = "https://api.openai.com/v1/realtime";
+      const model = "gpt-4o-realtime-preview-2024-12-17";
+      const sdpResponse = await fetch(`${baseUrl}?model=${model}`, {
+        method: "POST",
+        body: offer.sdp,
+        headers: {
+          Authorization: `Bearer ${EPHEMERAL_KEY}`,
+          "Content-Type": "application/sdp",
+        },
+      });
+
+      const answer = {
+        type: "answer",
+        sdp: await sdpResponse.text(),
+      };
+      await pc.setRemoteDescription(answer);
+
+      peerConnection.current = pc;
+
+      // Mark session as active
+      setIsSessionActive(true);
+    } catch (error) {
+      console.error("Failed to start session:", error);
+    }
   }
 
   // Stop current session, clean up peer connection and data channel
@@ -134,7 +183,7 @@ export default function App() {
       <main className="absolute top-16 left-0 right-0 bottom-0">
         <section className="absolute top-0 left-0 right-[380px] bottom-0 flex">
           <section className="absolute top-0 left-0 right-0 bottom-32 px-4 overflow-y-auto">
-            <EventLog events={events} />
+            <EventLog events={events} socket={socket} />
           </section>
           <section className="absolute h-32 left-0 right-0 bottom-0 p-4">
             <SessionControls
